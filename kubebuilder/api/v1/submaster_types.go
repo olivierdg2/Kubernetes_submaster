@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,22 +27,19 @@ import (
 type SubmasterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Foo is an example field of Submaster. Edit submaster_types.go to remove/update
+	Foo string `json:"foo,omitempty"`
 }
 
 // SubmasterStatus defines the observed state of Submaster
 type SubmasterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Status corev1.PodPhase `json:"status,omitempty"`
-	IP     string          `json:"ip,omitempty"`
-	Nodes  string          `json:"nodes,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:JSONPath=".status.status",name="STATUS",type="string"
-//+kubebuilder:printcolumn:JSONPath=".status.ip",name="IP",type="string"
-//+kubebuilder:printcolumn:JSONPath=".status.nodes",name="Nodes",type="integer"
 
 // Submaster is the Schema for the submasters API
 type Submaster struct {

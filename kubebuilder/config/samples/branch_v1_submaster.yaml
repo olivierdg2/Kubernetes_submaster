@@ -1,0 +1,7 @@
+apiVersion: branch.example.com/v1
+kind: Submaster
+metadata:
+  name: submaster-sample
+spec:
+  # Add fields here
+  foo: bar

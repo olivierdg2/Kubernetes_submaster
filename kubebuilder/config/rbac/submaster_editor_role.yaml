@@ -1,0 +1,24 @@
+# permissions for end users to edit submasters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: submaster-editor-role
+rules:
+- apiGroups:
+  - branch.example.com
+  resources:
+  - submasters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - branch.example.com
+  resources:
+  - submasters/status
+  verbs:
+  - get

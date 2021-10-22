@@ -1,0 +1,20 @@
+# permissions for end users to view submasters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: submaster-viewer-role
+rules:
+- apiGroups:
+  - branch.example.com
+  resources:
+  - submasters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - branch.example.com
+  resources:
+  - submasters/status
+  verbs:
+  - get
