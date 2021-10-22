@@ -28,10 +28,14 @@ spec:
      volumeMounts:
      - mountPath: /var/lib/rancher/k3s
        name: k3s-server
+     - mountPath: /output
+       name: output
      securityContext:
       privileged: true
    hostNetwork: true
    volumes:
    - name: k3s-server
      emptyDir: {}
-
+   - name: output
+     hostPath:
+      path: /submaster_conf
