@@ -12,8 +12,8 @@ If you want to deploy the submaster pod on a specific node, just add the nodeNam
 
 Apply the yaml file to the cluster
 
-'''bash 
+```bash 
 kubectl apply -f k3smaster.yml
-'''
+```
 
 TODO rajouter le volume hostpath pour y mettre l'output 
