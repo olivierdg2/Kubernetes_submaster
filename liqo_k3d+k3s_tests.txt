@@ -1,3 +1,0 @@
-Liqo starts on both clusters 
-Problem with peering K3S to K3D-> cannot access k3d cluster
-Peering K3D to K3S OK
