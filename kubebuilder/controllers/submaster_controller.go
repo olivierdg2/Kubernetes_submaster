@@ -21,10 +21,10 @@ import (
 	"fmt"
 	// "strconv"
 
-	k3smasterv1 "example.com/kubebuilder/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	branch "kubernetrees.com/kubebuilder/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,9 +39,11 @@ type SubmasterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=k3smaster.example.com,resources=submasters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=k3smaster.example.com,resources=submasters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=k3smaster.example.com,resources=submasters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=branch.kubernetrees.com,resources=submasters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=branch.kubernetrees.com,resources=submasters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=branch.kubernetrees.com,resources=submasters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:resources=pods,verbs=get;watch;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -55,50 +57,37 @@ type SubmasterReconciler struct {
 func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 	// your logic here
-	var sub k3smasterv1.Submaster
+	var sub branch.Submaster
 	if err := r.Get(ctx, req.NamespacedName, &sub); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	listOptions := []client.ListOption{
-		client.MatchingLabels(map[string]string{"submaster": "a-virtualbox"}),
-		client.InNamespace("default"),
+		client.MatchingLabels(map[string]string{"pod": sub.Name}),
+		client.InNamespace(sub.Namespace),
 	}
 
 	var list corev1.PodList
 	if err := r.List(ctx, &list, listOptions...); err != nil {
-		return ctrl.Result{}, fmt.Errorf("blabla %v", err)
+		return ctrl.Result{}, fmt.Errorf("%v", err)
 	}
-	var pod corev1.Pod
+
 	if len(list.Items) != 0 {
+		var pod corev1.Pod
 		pod = list.Items[0]
 		sub.Status.Status = pod.Status.Phase
 		sub.Status.IP = pod.Status.PodIP
+		if pod.Status.Phase == "Running"{
+			job, err := r.desiredJob(pod,sub)
+			applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
+			if err = r.Patch(ctx, &job, client.Apply, applyOpts...); err != nil{
+				return ctrl.Result{}, err
+			}
+		}
 	} else {
 		sub.Status.Status = "No pod generated"
 		sub.Status.IP = ""
 	}
-
-	//Pour l'instant marche, mais attention: n'update que quand on lance le controller -> doit mettre un watch ou quoi
-	//Ne gère pes les erreurs, si le fichier n'est pas trouvé, que le server n'est pas joignable, que la config n'est pas bonne, le controller crash
-	//Question, comment gérer les erreurs + comment gérer la kubeconfig -> le pod est créé -> envoyer sa kubeconfig au bigmaster
-	/*
-			config, err := clientcmd.BuildConfigFromFlags("", "/etc/rancher/submaster/a-virtualbox.yaml")
-			if err != nil {
-			         panic(err.Error())
-			}
-
-			clientset, err := kubernetes.NewForConfig(config)
-			if err != nil {
-		                 panic(err.Error())
-			}
-
-			nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-		        if err != nil {
-			         panic(err.Error())
-			}
-			sub.Status.Nodes = strconv.Itoa(len(nodes.Items))
-	*/
 
 	deployment, err := r.desiredDeployment(sub)
 	if err != nil {
@@ -121,7 +110,7 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *SubmasterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&k3smasterv1.Submaster{}).
+		For(&branch.Submaster{}).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
