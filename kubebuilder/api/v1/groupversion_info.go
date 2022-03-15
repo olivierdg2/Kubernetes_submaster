@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1 contains API Schema definitions for the branch v1 API group
 //+kubebuilder:object:generate=true
-//+groupName=branch.example.com
+//+groupName=branch.kubernetrees.com
 package v1
 
 import (
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "branch.example.com", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: "branch.kubernetrees.com", Version: "v1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
