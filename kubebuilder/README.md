@@ -2,6 +2,15 @@
 
 ## Important files 
 
+### main.go
+#### Note
+
+init function needs to be changed in order to make the controller use other resources.
+
+### Dockerfile
+
+Dockerfile used to Dockerize the whole controller project.
+
 ### /chart/test 
 
 The generetad helm chart by Helmify corresponding to this Kubebuilder project.
