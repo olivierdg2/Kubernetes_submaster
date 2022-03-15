@@ -31,9 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	branchv1 "example.com/kubebuilder/api/v1"
-	"example.com/kubebuilder/controllers"
+	branchv1 "kubernetrees.com/kubebuilder/api/v1"
+	"kubernetrees.com/kubebuilder/controllers"
 	//+kubebuilder:scaffold:imports
+	kubefed "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
 )
 
 var (
@@ -45,6 +46,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(branchv1.AddToScheme(scheme))
+	utilruntime.Must(kubefed.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,7 +73,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "fe0d2239.example.com",
+		LeaderElectionID:       "fe0d2239.kubernetrees.com",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

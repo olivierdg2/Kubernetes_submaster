@@ -1,0 +1,72 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: submasters.branch.kubernetrees.com
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "chart.fullname" . }}-
+    controller-gen.kubebuilder.io/version: v0.7.0
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  group: branch.kubernetrees.com
+  names:
+    kind: Submaster
+    listKind: SubmasterList
+    plural: submasters
+    singular: submaster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.status
+      name: STATUS
+      type: string
+    - jsonPath: .status.ip
+      name: IP
+      type: string
+    - jsonPath: .status.nodes
+      name: Nodes
+      type: integer
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Submaster is the Schema for the submasters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SubmasterSpec defines the desired state of Submaster
+            type: object
+          status:
+            description: SubmasterStatus defines the observed state of Submaster
+            properties:
+              ip:
+                type: string
+              nodes:
+                type: string
+              status:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

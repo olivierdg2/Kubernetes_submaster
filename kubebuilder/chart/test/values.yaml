@@ -1,0 +1,75 @@
+controllerManager:
+  kubeRbacProxy:
+    image:
+      repository: gcr.io/kubebuilder/kube-rbac-proxy
+      tag: v0.8.0
+  manager:
+    image:
+      repository: olivierdg1/submaster
+      tag: latest
+    resources:
+      limits:
+        cpu: 100m
+        memory: 30Mi
+      requests:
+        cpu: 100m
+        memory: 20Mi
+  replicas: 1
+managerConfig:
+  controllerManagerConfigYaml:
+    health:
+      healthProbeBindAddress: :8081
+    leaderElection:
+      leaderElect: true
+      resourceName: fe0d2239.kubernetrees.com
+    metrics:
+      bindAddress: 127.0.0.1:8080
+    webhook:
+      port: 9443
+metricsService:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  type: ClusterIP
+kubefed: 
+  controllermanager:
+    enabled: true
+    ## common node selector
+    commonNodeSelector:
+      dedicated: master
+
+    ## common tolerations
+    commonTolerations: 
+      - key: dedicated
+        operator: Equal
+        value: master
+        effect: NoSchedule
+
+    ## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    imagePullSecrets: []
+    # - name: secretName
+
+    controller:
+      annotations: {}
+      podAnnotations: {}
+      replicaCount: 1
+      repository: quay.io/kubernetes-multicluster
+      image: kubefed
+      tag: canary
+      imagePullPolicy: IfNotPresent
+      logLevel: 2
+      forceRedeployment: false
+      env: {}
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+  postInstallJob:
+    repository: bitnami
+    image: kubectl
+    tag: 1.17.16
+    imagePullPolicy: IfNotPresent
