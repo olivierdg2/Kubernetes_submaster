@@ -15,6 +15,7 @@ controllerManager:
         cpu: 100m
         memory: 20Mi
   replicas: 1
+  
 managerConfig:
   controllerManagerConfigYaml:
     health:
@@ -37,13 +38,13 @@ kubefed:
     enabled: true
     ## common node selector
     commonNodeSelector:
-      dedicated: master
+      dedicated: root
 
     ## common tolerations
     commonTolerations: 
       - key: dedicated
         operator: Equal
-        value: master
+        value: root
         effect: NoSchedule
 
     ## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/

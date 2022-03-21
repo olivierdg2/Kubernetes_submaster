@@ -25,11 +25,11 @@ spec:
       {{- include "chart.selectorLabels" . | nindent 8 }}
     spec:
       nodeSelector:
-        dedicated: master
+        dedicated: root
       tolerations:
       - key: dedicated
         operator: Equal
-        value: master
+        value: root
         effect: NoSchedule
       containers:
       - args:
