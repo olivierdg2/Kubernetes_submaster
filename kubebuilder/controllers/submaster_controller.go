@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	kubefed "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
-	batchv1 "k8s.io/api/batch/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -75,7 +74,7 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
         
-    } else {
+    }else {
         // The object is being deleted
         if controllerutil.ContainsFinalizer(&sub, branchFinalizer) {
             // our finalizer is present, so lets handle any external dependency
@@ -96,57 +95,59 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
         return ctrl.Result{}, nil
     }
 
-	listOptions := []client.ListOption{
-		client.MatchingLabels(map[string]string{"submaster":sub.Name,"pod": sub.Name}),
-		client.InNamespace(sub.Namespace),
-	}
-
-	var podList corev1.PodList
-	if err := r.List(ctx, &podList, listOptions...); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%v", err)
-	}
-
-	if len(podList.Items) != 0 {
-		var pod corev1.Pod
-		pod = podList.Items[0]
-		sub.Status.Status = pod.Status.Phase
-		sub.Status.IP = pod.Status.PodIP
-		if pod.Status.Phase == "Running"{
-			configJob, err := r.desiredConfigJob(pod,sub)
-			applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-			if err = r.Patch(ctx, &configJob, client.Apply, applyOpts...); err != nil{
-				return ctrl.Result{}, err
-			}
-			listOptions := []client.ListOption{
-				client.MatchingLabels(map[string]string{"submaster":sub.Name,"configJob": sub.Name}),
-				client.InNamespace(sub.Namespace),
-			}
-			var jobList batchv1.JobList
-			if err := r.List(ctx, &jobList, listOptions...); err != nil {
-				return ctrl.Result{}, fmt.Errorf("%v", err)
-			}
-			if len(jobList.Items) != 0 {
-				kubefedJob, err := r.desiredKubefedJob(sub)
+	if sub.Spec.Containerized == false {
+		//TODO -> kubefed join 
+		sub.Status.Containerized = "false"
+		sub.Status.IP = sub.Spec.IP
+		secret, err := r.desiredSecretFromExisting(sub)
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
+		if err = r.Patch(ctx, &secret, client.Apply, applyOpts...); err != nil{
+			return ctrl.Result{}, err
+		}
+		kubefedJob, err := r.desiredKubefedJob(sub)
+		if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil{
+			return ctrl.Result{}, err
+		}
+	} else {
+		sub.Status.Containerized = "true"
+		listOptions := []client.ListOption{
+			client.MatchingLabels(map[string]string{"submaster":sub.Name,"pod": sub.Name}),
+			client.InNamespace(sub.Namespace),
+		}
+	
+		var podList corev1.PodList
+		if err := r.List(ctx, &podList, listOptions...); err != nil {
+			return ctrl.Result{}, fmt.Errorf("%v", err)
+		}
+	
+		if len(podList.Items) != 0 {
+			var pod corev1.Pod
+			pod = podList.Items[0]
+			sub.Status.Status = pod.Status.Phase
+			sub.Status.IP = pod.Status.PodIP
+			if pod.Status.Phase == "Running"{
+				configJob, err := r.desiredConfigJob(pod,sub)
 				applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-				if err = r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil{
+				if err = r.Patch(ctx, &configJob, client.Apply, applyOpts...); err != nil{
+					return ctrl.Result{}, err
+				}
+				kubefedJob, err := r.desiredKubefedJob(sub)
+				if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil{
 					return ctrl.Result{}, err
 				}
 			}
+		} else {
+			sub.Status.Status = "No pod generated"
+			sub.Status.IP = ""
 		}
-	} else {
-		sub.Status.Status = "No pod generated"
-		sub.Status.IP = ""
-	}
-
-	deployment, err := r.desiredDeployment(sub)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-	err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
-	if err != nil {
-		return ctrl.Result{}, err
+	
+		deployment, err := r.desiredDeployment(sub)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
+		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
 	}
 
 	if err := r.Status().Update(ctx, &sub); err != nil {

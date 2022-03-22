@@ -139,3 +139,20 @@ func (r *SubmasterReconciler) desiredKubefedJob(sub branch.Submaster) (batchv1.J
 
 	return job, nil
 }
+
+func (r *SubmasterReconciler) desiredSecretFromExisting(sub branch.Submaster) (corev1.Secret, error) {
+	secret := corev1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubeconfig-" + sub.Name,
+			Namespace: sub.Namespace,
+		},
+		StringData: map[string]string{"config-branch.yaml":sub.Spec.Config},
+	}
+
+	if err := ctrl.SetControllerReference(&sub, &secret, r.Scheme); err != nil {
+		return secret, err
+	}
+
+	return secret, nil
+}
