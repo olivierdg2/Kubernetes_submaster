@@ -95,7 +95,7 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
         return ctrl.Result{}, nil
     }
 
-	if sub.Spec.Containerized == false {
+	if sub.Spec.Containerized == false{
 		//TODO -> kubefed join 
 		sub.Status.Containerized = "false"
 		sub.Status.IP = sub.Spec.IP

@@ -28,7 +28,7 @@ import (
 type SubmasterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Containerized bool   `json:"existing,omitempty"`
+	Containerized bool   `json:"containerized,omitempty"`
 	IP string              `json:"ip,omitempty"`
 	Config string          `json:"config,omitempty"`
 }
