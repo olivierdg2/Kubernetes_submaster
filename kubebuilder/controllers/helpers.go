@@ -27,14 +27,14 @@ func (r *SubmasterReconciler) desiredDeployment(sub branch.Submaster) (appsv1.De
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"submaster": sub.Name,"pod": sub.Name},
+					Labels: map[string]string{"submaster": sub.Name, "pod": sub.Name},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
 							Name:         "k3s",
 							Image:        "rancher/k3s:latest",
-							Args:         []string{"server","--disable-cloud-controller", "--kubelet-arg", "port=10350", "--kubelet-arg", "healthz-port=10348", "--kube-proxy-arg", "healthz-bind-address=0.0.0.0:10356", "--kube-proxy-arg", "metrics-bind-address=127.0.0.1:10349"},
+							Args:         []string{"server", "--disable-cloud-controller", "--kubelet-arg", "port=10350", "--kubelet-arg", "healthz-port=10348", "--kube-proxy-arg", "healthz-bind-address=0.0.0.0:10356", "--kube-proxy-arg", "metrics-bind-address=127.0.0.1:10349"},
 							Env:          []corev1.EnvVar{{Name: "K3S_TOKEN", Value: "f7b5d6eab0aa000d7a8615065a40e40b"}, {Name: "K3S_KUBECONFIG_OUTPUT", Value: "/output/kubeconfig.yaml"}, {Name: "K3S_KUBECONFIG_MODE", Value: "666"}},
 							VolumeMounts: []corev1.VolumeMount{{MountPath: "/var/lib/rancher/k3s", Name: "k3s-server"}},
 							//Add mount to output
@@ -71,8 +71,8 @@ func (r *SubmasterReconciler) desiredConfigJob(pod corev1.Pod, sub branch.Submas
 			TTLSecondsAfterFinished: &a,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "kubectl-" + sub.Name,
-					Labels: map[string]string{"submaster": sub.Name,"configJob": sub.Name},
+					Name:   "kubectl-" + sub.Name,
+					Labels: map[string]string{"submaster": sub.Name, "configJob": sub.Name},
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy: "Never",
@@ -80,20 +80,15 @@ func (r *SubmasterReconciler) desiredConfigJob(pod corev1.Pod, sub branch.Submas
 						{
 							Name:         "kubectl",
 							Image:        "olivierdg1/kubectl",
-							Env:          []corev1.EnvVar{{Name: "PODNAME", Value: pod.Name},{Name: "KUBECONFIG", Value: "config.yaml"}, {Name: "NAME", Value: sub.Name}, {Name: "IP", Value: pod.Status.PodIP}},
+							Env:          []corev1.EnvVar{{Name: "PODNAME", Value: pod.Name}, {Name: "KUBECONFIG", Value: "config.yaml"}, {Name: "NAME", Value: sub.Name}, {Name: "IP", Value: pod.Status.PodIP}},
 							VolumeMounts: []corev1.VolumeMount{{MountPath: "./config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}},
 						},
 					},
-					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource : corev1.VolumeSource{ Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}},
+					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}},
 				},
-		
 			},
 			BackoffLimit: &b,
 		},
-	}
-
-	if err := ctrl.SetControllerReference(&sub, &job, r.Scheme); err != nil {
-		return job, err
 	}
 
 	return job, nil
@@ -112,8 +107,8 @@ func (r *SubmasterReconciler) desiredKubefedJob(sub branch.Submaster) (batchv1.J
 			TTLSecondsAfterFinished: &a,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "kubefedctl-" + sub.Name,
-					Labels: map[string]string{"submaster": sub.Name,"kubefedJob": sub.Name},
+					Name:   "kubefedctl-" + sub.Name,
+					Labels: map[string]string{"submaster": sub.Name, "kubefedJob": sub.Name},
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy: "Never",
@@ -122,12 +117,11 @@ func (r *SubmasterReconciler) desiredKubefedJob(sub branch.Submaster) (batchv1.J
 							Name:         "kubefedctl",
 							Image:        "olivierdg1/kubefedctl",
 							Env:          []corev1.EnvVar{{Name: "KUBECONFIG", Value: "config.yaml:/config-branch.yaml"}, {Name: "NAME", Value: sub.Name}},
-							VolumeMounts: []corev1.VolumeMount{{MountPath: "./config.yaml", Name: "kubeconfig", SubPath: "config.yaml"},{MountPath: "./config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
+							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}, {MountPath: "/secret/config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
 						},
 					},
-					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource : corev1.VolumeSource{ Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}},{Name: "kubeconfig-" + sub.Name, VolumeSource : corev1.VolumeSource{ Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig-" + sub.Name}}}},
+					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}, {Name: "kubeconfig-" + sub.Name, VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig-" + sub.Name}}}},
 				},
-		
 			},
 			BackoffLimit: &b,
 		},
@@ -147,12 +141,43 @@ func (r *SubmasterReconciler) desiredSecretFromExisting(sub branch.Submaster) (c
 			Name:      "kubeconfig-" + sub.Name,
 			Namespace: sub.Namespace,
 		},
-		StringData: map[string]string{"config-branch.yaml":sub.Spec.Config},
+		StringData: map[string]string{"config-branch.yaml": sub.Spec.Config},
 	}
-
-	if err := ctrl.SetControllerReference(&sub, &secret, r.Scheme); err != nil {
-		return secret, err
-	}
-
 	return secret, nil
+}
+
+func (r *SubmasterReconciler) desiredDeleteExternalJob(sub branch.Submaster) (batchv1.Job, error) {
+	a := int32(100)
+	b := int32(4)
+	job := batchv1.Job{
+		TypeMeta: metav1.TypeMeta{APIVersion: batchv1.SchemeGroupVersion.String(), Kind: "Job"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubefed-delete-external-" + sub.Name,
+			Namespace: sub.Namespace,
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: &a,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "kubefed-delete-external-" + sub.Name,
+					Labels: map[string]string{"submaster": sub.Name},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy: "Never",
+					Containers: []corev1.Container{
+						{
+							Name:         "kubefedctl-delete",
+							Image:        "olivierdg1/kubectl_delete",
+							Env:          []corev1.EnvVar{{Name: "KUBECONFIG", Value: "config.yaml:/config-branch.yaml"}, {Name: "NAME", Value: sub.Name}},
+							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}, {MountPath: "/secret/config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
+						},
+					},
+					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}, {Name: "kubeconfig-" + sub.Name, VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig-" + sub.Name}}}},
+				},
+			},
+			BackoffLimit: &b,
+		},
+	}
+
+	return job, nil
 }

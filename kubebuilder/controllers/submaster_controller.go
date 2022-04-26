@@ -19,18 +19,19 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	// "strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	types "k8s.io/apimachinery/pkg/types"
 	branch "kubernetrees.com/kubebuilder/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	kubefed "sigs.k8s.io/kubefed/pkg/apis/core/v1beta1"
-	types "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // SubmasterReconciler reconciles a Submaster object
@@ -62,77 +63,77 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-    branchFinalizer := "branch.finalizers.kubernetrees.com"
-
-    if sub.ObjectMeta.DeletionTimestamp.IsZero() {
-        // The object is not being deleted, so if it does not have our finalizer,
-        // then lets add the finalizer and update the object.
+	branchFinalizer := "branch.finalizers.kubernetrees.com"
+	if sub.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object.
 		if !controllerutil.ContainsFinalizer(&sub, branchFinalizer) {
 			controllerutil.AddFinalizer(&sub, branchFinalizer)
 			if err := r.Update(ctx, &sub); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-        
-    }else {
-        // The object is being deleted
-        if controllerutil.ContainsFinalizer(&sub, branchFinalizer) {
-            // our finalizer is present, so lets handle any external dependency
-            if err := deleteExternalResources(sub, ctx, r); err != nil {
-                // if fail to delete the external dependency here, return with error
-                // so that it can be retried
-                return ctrl.Result{}, err
-            }
 
-            // remove our finalizer from the list and update it.
-            controllerutil.RemoveFinalizer(&sub, branchFinalizer)
-            if err := r.Update(ctx, &sub); err != nil {
-                return ctrl.Result{}, err
-            }
-        }
+	} else {
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(&sub, branchFinalizer) {
+			// our finalizer is present, so lets handle any external dependency
+			if err := deleteExternalResources(sub, ctx, r); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
 
-        // Stop reconciliation as the item is being deleted
-        return ctrl.Result{}, nil
-    }
+			// remove our finalizer from the list and update it.
+			controllerutil.RemoveFinalizer(&sub, branchFinalizer)
+			if err := r.Update(ctx, &sub); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 
-	if sub.Spec.Containerized == false{
-		//TODO -> kubefed join 
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
+	if sub.Spec.Containerized == false {
+		//TODO -> kubefed join
 		sub.Status.Containerized = "false"
 		sub.Status.IP = sub.Spec.IP
-		secret, err := r.desiredSecretFromExisting(sub)
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-		if err = r.Patch(ctx, &secret, client.Apply, applyOpts...); err != nil{
+		secret, err := r.desiredSecretFromExisting(sub)
+		if err = r.Patch(ctx, &secret, client.Apply, applyOpts...); err != nil {
 			return ctrl.Result{}, err
 		}
+
 		kubefedJob, err := r.desiredKubefedJob(sub)
-		if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil{
+		if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil {
 			return ctrl.Result{}, err
 		}
 	} else {
 		sub.Status.Containerized = "true"
 		listOptions := []client.ListOption{
-			client.MatchingLabels(map[string]string{"submaster":sub.Name,"pod": sub.Name}),
+			client.MatchingLabels(map[string]string{"submaster": sub.Name, "pod": sub.Name}),
 			client.InNamespace(sub.Namespace),
 		}
-	
+
 		var podList corev1.PodList
 		if err := r.List(ctx, &podList, listOptions...); err != nil {
 			return ctrl.Result{}, fmt.Errorf("%v", err)
 		}
-	
+
 		if len(podList.Items) != 0 {
 			var pod corev1.Pod
 			pod = podList.Items[0]
-			sub.Status.Status = pod.Status.Phase
+			sub.Status.Status = fmt.Sprintf("%s", pod.Status.Phase)
 			sub.Status.IP = pod.Status.PodIP
-			if pod.Status.Phase == "Running"{
-				configJob, err := r.desiredConfigJob(pod,sub)
+			if pod.Status.Phase == "Running" {
+				configJob, err := r.desiredConfigJob(pod, sub)
 				applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-				if err = r.Patch(ctx, &configJob, client.Apply, applyOpts...); err != nil{
+				if err = r.Patch(ctx, &configJob, client.Apply, applyOpts...); err != nil {
 					return ctrl.Result{}, err
 				}
 				kubefedJob, err := r.desiredKubefedJob(sub)
-				if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil{
+				if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -140,14 +141,32 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			sub.Status.Status = "No pod generated"
 			sub.Status.IP = ""
 		}
-	
+
 		deployment, err := r.desiredDeployment(sub)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-	
+
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
-		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
+		if err := r.Patch(ctx, &deployment, client.Apply, applyOpts...); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	var kubefedObject kubefed.KubeFedCluster
+	var kubefedNamespacedName types.NamespacedName
+	kubefedNamespacedName.Namespace = sub.Namespace
+	kubefedNamespacedName.Name = "branch-" + sub.Name
+	if err := r.Get(ctx, kubefedNamespacedName, &kubefedObject); err != nil {
+		if err := r.Status().Update(ctx, &sub); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, err
+	} else {
+		if err := ctrl.SetControllerReference(&sub, &kubefedObject, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		sub.Status.Status = fmt.Sprintf("%s", kubefedObject.Status.Conditions[0].Type)
 	}
 
 	if err := r.Status().Update(ctx, &sub); err != nil {
@@ -162,10 +181,15 @@ func (r *SubmasterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&branch.Submaster{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&kubefed.KubeFedCluster{}).
 		Complete(r)
 }
 
 func deleteExternalResources(sub branch.Submaster, ctx context.Context, r *SubmasterReconciler) error {
+	deleteJob, _ := r.desiredDeleteExternalJob(sub)
+	if err := r.Create(ctx, &deleteJob); err != nil {
+		return fmt.Errorf("%v", err)
+	}
 	var kubefedObject kubefed.KubeFedCluster
 	var kubefedNamespacedName types.NamespacedName
 	kubefedNamespacedName.Namespace = sub.Namespace
@@ -173,15 +197,7 @@ func deleteExternalResources(sub branch.Submaster, ctx context.Context, r *Subma
 	if err := r.Get(ctx, kubefedNamespacedName, &kubefedObject); err != nil {
 		return fmt.Errorf("%v", err)
 	}
-	if err := r.Delete(ctx, &kubefedObject); err != nil{
-		return fmt.Errorf("%v", err)
-	}
-	var secretObject corev1.Secret
-	kubefedNamespacedName.Name = "kubeconfig-" + sub.Name
-	if err := r.Get(ctx, kubefedNamespacedName, &secretObject); err != nil {
-		return fmt.Errorf("%v", err)
-	}
-	if err := r.Delete(ctx, &secretObject); err != nil{
+	if err := r.Delete(ctx, &kubefedObject); err != nil {
 		return fmt.Errorf("%v", err)
 	}
 	return nil
