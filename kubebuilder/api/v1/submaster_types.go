@@ -27,18 +27,18 @@ import (
 type SubmasterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Containerized bool   `json:"containerized,omitempty"`
-	IP string              `json:"ip,omitempty"`
-	Config string          `json:"config,omitempty"`
+	Containerized bool   `json:"containerized"`
+	IP            string `json:"ip,omitempty"`
+	Config        string `json:"config,omitempty"`
 }
 
 // SubmasterStatus defines the observed state of Submaster
 type SubmasterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Status string `json:"status,omitempty"`
-	IP     string          `json:"ip,omitempty"`
-	Containerized string   `json:"existing,omitempty"`
+	Status        string `json:"status,omitempty"`
+	IP            string `json:"ip,omitempty"`
+	Containerized string `json:"containerized"`
 }
 
 //+kubebuilder:object:root=true

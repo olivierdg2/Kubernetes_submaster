@@ -75,13 +75,14 @@ func (r *SubmasterReconciler) desiredConfigJob(pod corev1.Pod, sub branch.Submas
 					Labels: map[string]string{"submaster": sub.Name, "configJob": sub.Name},
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: "Never",
+					RestartPolicy:    "Never",
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "nexus-registry-key"}},
 					Containers: []corev1.Container{
 						{
 							Name:         "kubectl",
-							Image:        "olivierdg1/kubectl",
+							Image:        "nexus.cetic.be:8129/kubectl",
 							Env:          []corev1.EnvVar{{Name: "PODNAME", Value: pod.Name}, {Name: "KUBECONFIG", Value: "config.yaml"}, {Name: "NAME", Value: sub.Name}, {Name: "IP", Value: pod.Status.PodIP}},
-							VolumeMounts: []corev1.VolumeMount{{MountPath: "./config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}},
+							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}},
 						},
 					},
 					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}},
@@ -111,11 +112,53 @@ func (r *SubmasterReconciler) desiredKubefedJob(sub branch.Submaster) (batchv1.J
 					Labels: map[string]string{"submaster": sub.Name, "kubefedJob": sub.Name},
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: "Never",
+					RestartPolicy:    "Never",
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "nexus-registry-key"}},
 					Containers: []corev1.Container{
 						{
 							Name:         "kubefedctl",
-							Image:        "olivierdg1/kubefedctl",
+							Image:        "nexus.cetic.be:8129/kubefedctl",
+							Env:          []corev1.EnvVar{{Name: "KUBECONFIG", Value: "config.yaml:/config-branch.yaml"}, {Name: "NAME", Value: sub.Name}},
+							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}, {MountPath: "/secret/config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
+						},
+					},
+					Volumes: []corev1.Volume{{Name: "kubeconfig", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig"}}}, {Name: "kubeconfig-" + sub.Name, VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "kubeconfig-" + sub.Name}}}},
+				},
+			},
+			BackoffLimit: &b,
+		},
+	}
+
+	if err := ctrl.SetControllerReference(&sub, &job, r.Scheme); err != nil {
+		return job, err
+	}
+
+	return job, nil
+}
+
+func (r *SubmasterReconciler) desiredKubefedJob_existing(sub branch.Submaster) (batchv1.Job, error) {
+	a := int32(100)
+	b := int32(4)
+	job := batchv1.Job{
+		TypeMeta: metav1.TypeMeta{APIVersion: batchv1.SchemeGroupVersion.String(), Kind: "Job"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubefed-join-" + sub.Name,
+			Namespace: sub.Namespace,
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: &a,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "kubefedctl-" + sub.Name,
+					Labels: map[string]string{"submaster": sub.Name, "kubefedJob": sub.Name},
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:    "Never",
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "nexus-registry-key"}},
+					Containers: []corev1.Container{
+						{
+							Name:         "kubefedctl",
+							Image:        "nexus.cetic.be:8129/kubefedctl_existing",
 							Env:          []corev1.EnvVar{{Name: "KUBECONFIG", Value: "config.yaml:/config-branch.yaml"}, {Name: "NAME", Value: sub.Name}},
 							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}, {MountPath: "/secret/config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
 						},
@@ -163,11 +206,12 @@ func (r *SubmasterReconciler) desiredDeleteExternalJob(sub branch.Submaster) (ba
 					Labels: map[string]string{"submaster": sub.Name},
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: "Never",
+					RestartPolicy:    "Never",
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "nexus-registry-key"}},
 					Containers: []corev1.Container{
 						{
 							Name:         "kubefedctl-delete",
-							Image:        "olivierdg1/kubectl_delete",
+							Image:        "nexus.cetic.be:8129/kubectl_delete",
 							Env:          []corev1.EnvVar{{Name: "KUBECONFIG", Value: "config.yaml:/config-branch.yaml"}, {Name: "NAME", Value: sub.Name}},
 							VolumeMounts: []corev1.VolumeMount{{MountPath: "/secret/config.yaml", Name: "kubeconfig", SubPath: "config.yaml"}, {MountPath: "/secret/config-branch.yaml", Name: "kubeconfig-" + sub.Name, SubPath: "config-branch.yaml"}},
 						},

@@ -95,9 +95,9 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if sub.Spec.Containerized == false {
+	if !sub.Spec.Containerized {
 		//TODO -> kubefed join
-		sub.Status.Containerized = "false"
+		sub.Status.Containerized = "False"
 		sub.Status.IP = sub.Spec.IP
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("submaster")}
 		secret, err := r.desiredSecretFromExisting(sub)
@@ -105,12 +105,12 @@ func (r *SubmasterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
-		kubefedJob, err := r.desiredKubefedJob(sub)
+		kubefedJob, err := r.desiredKubefedJob_existing(sub)
 		if err := r.Patch(ctx, &kubefedJob, client.Apply, applyOpts...); err != nil {
 			return ctrl.Result{}, err
 		}
 	} else {
-		sub.Status.Containerized = "true"
+		sub.Status.Containerized = "True"
 		listOptions := []client.ListOption{
 			client.MatchingLabels(map[string]string{"submaster": sub.Name, "pod": sub.Name}),
 			client.InNamespace(sub.Namespace),
